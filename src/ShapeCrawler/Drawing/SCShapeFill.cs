@@ -109,7 +109,6 @@ internal abstract class SCShapeFill : IShapeFill
         throw new NotImplementedException();
     }
 
-
     public void SetLuminanceOffset(double luminanceOffset)
     {
         // ToDo: Implement setting Luminance Offset

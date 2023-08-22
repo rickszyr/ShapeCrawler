@@ -1,11 +1,27 @@
-﻿using System.Linq;
+﻿using System.Drawing;
+using System.Linq;
 using DocumentFormat.OpenXml;
+using SkiaSharp;
 using A = DocumentFormat.OpenXml.Drawing;
 
 namespace ShapeCrawler.Drawing;
 
 internal static class HexParser
 {
+    internal static Color GetSolidColorFromElement(TypedOpenXmlCompositeElement typedElement, SCSlideMaster slideMaster)
+    {
+        var colorString = FromSolidFill(typedElement, slideMaster!);
+        var color = ColorTranslator.FromHtml($"#{colorString.Item2!}");
+        float h = color.GetHue(), s = color.GetSaturation(), l = color.GetBrightness();
+
+        var luminanceModulation = (float)(typedElement.Descendants<A.LuminanceModulation>().FirstOrDefault()?.Val ?? 100000);
+        var luminanceOffset = (float)(typedElement.Descendants<A.LuminanceOffset>()?.FirstOrDefault()?.Val ?? 0);
+        var alpha = (float)(typedElement.Descendants<A.Alpha>().FirstOrDefault()?.Val ?? 100000);
+        var resultingColor = SKColor.FromHsl(h, s * 100, (l * 100 * luminanceModulation / 100000f) + (luminanceOffset / 1000f), (byte)(alpha / 100000f * 255));
+
+        return Color.FromArgb(resultingColor.Alpha, resultingColor.Red, resultingColor.Green, resultingColor.Blue);
+    }
+
     internal static (SCColorType, string?) FromSolidFill(TypedOpenXmlCompositeElement typedElement, SCSlideMaster slideMaster)
     {
         var colorHexVariant = GetWithoutScheme(typedElement);

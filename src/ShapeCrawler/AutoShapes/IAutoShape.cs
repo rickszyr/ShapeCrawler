@@ -29,21 +29,26 @@ public interface IAutoShape : IShape
     ///     Gets shape outline.
     /// </summary>
     IShapeOutline Outline { get; }
- 
+
     /// <summary>
     ///     Gets shape fill. Returns <see langword="null"/> if the shape can not be filled, for example, a line.
     /// </summary>
     IShapeFill? Fill { get; }
-    
+
     /// <summary>
     ///     Gets text frame. Returns <see langword="null"/> if the shape is not a text holder.
     /// </summary>
     ITextFrame? TextFrame { get; }
-    
+
     /// <summary>
     ///     Duplicate the shape.
     /// </summary>
     IAutoShape Duplicate();
+
+    /// <summary>
+    /// Returns the svg representation of a custom shape.
+    /// </summary>
+    string GetSvg();
 }
 
 internal class SCAutoShape : SCShape, IAutoShape, ITextFrameContainer
@@ -70,7 +75,7 @@ internal class SCAutoShape : SCShape, IAutoShape, ITextFrameContainer
         this.lvlToFontData = new ResetAbleLazy<Dictionary<int, FontData>>(this.GetLvlToFontData);
         this.slideStructure = (SlideStructure)this.slideOf.Value;
     }
-    
+
     internal event EventHandler<NewAutoShape>? Duplicated;
 
     #region Public Properties
@@ -82,7 +87,7 @@ internal class SCAutoShape : SCShape, IAutoShape, ITextFrameContainer
     public override SCShapeType ShapeType => SCShapeType.AutoShape;
 
     public virtual IShapeFill? Fill => this.shapeFill.Value;
-    
+
     public virtual ITextFrame? TextFrame => this.textFrame.Value;
 
     public virtual IAutoShape Duplicate()
@@ -91,16 +96,29 @@ internal class SCAutoShape : SCShape, IAutoShape, ITextFrameContainer
         var id = ((SlideStructure)this.slideOf.Value).GetNextShapeId();
         typedCompositeElement.GetNonVisualDrawingProperties().Id = new UInt32Value((uint)id);
         var newAutoShape = new SCAutoShape(
-            typedCompositeElement, 
+            typedCompositeElement,
             this.slideOf,
             this.shapeCollectionOf);
 
         var duplicatedShape = new NewAutoShape(newAutoShape, typedCompositeElement);
         this.Duplicated?.Invoke(this, duplicatedShape);
-        
+
         return newAutoShape;
     }
 
+    public string GetSvg()
+    {
+        var shapeProperties = this.pShape.GetFirstChild<P.ShapeProperties>();
+        var customGeometry = shapeProperties?.GetFirstChild<A.CustomGeometry>();
+        var svgBuilder = new SVGBuilder();
+
+        if (customGeometry is not null)
+        {
+            return svgBuilder.BuildFromCustomGeometry(shapeProperties!, this.Width, this.Height, this.SlideMasterInternal);
+        }
+
+        return string.Empty;
+    }
     #endregion Public Properties
 
     internal override void Draw(SKCanvas slideCanvas)
@@ -206,8 +224,7 @@ internal class SCAutoShape : SCShape, IAutoShape, ITextFrameContainer
 
         if (!lvlToFontData.Any())
         {
-            var endParaRunPrFs = textBody.GetFirstChild<A.Paragraph>() !
-                .GetFirstChild<A.EndParagraphRunProperties>()?.FontSize;
+            var endParaRunPrFs = textBody.GetFirstChild<A.Paragraph>() !.GetFirstChild<A.EndParagraphRunProperties>()?.FontSize;
             if (endParaRunPrFs is not null)
             {
                 var fontData = new FontData
@@ -283,5 +300,5 @@ internal class SCAutoShape : SCShape, IAutoShape, ITextFrameContainer
     private IShapeOutline GetOutline()
     {
         return new SCShapeOutline(this);
-    }
+    }   
 }

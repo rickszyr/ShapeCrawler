@@ -1,4 +1,5 @@
 using System;
+using DocumentFormat.OpenXml;
 
 namespace ShapeCrawler.Shared;
 
@@ -7,6 +8,7 @@ internal static class UnitConverter
     private const float HorizontalResolutionDpi = 96;
     private const float VerticalResolutionDpi = 96;
     private const double AngleToDegrees = 1 / 60000d;
+    private const float OpenXmlToPercent = 100000f;
 
     internal static int HorizontalEmuToPixel(long horizontalEmus)
     {
@@ -61,5 +63,15 @@ internal static class UnitConverter
     internal static double AngleValueToDegrees(int angle)
     {
         return angle * AngleToDegrees;
+    }
+
+    internal static double AngleValueToRadians(int angle)
+    {
+        return angle * AngleToDegrees * Math.PI / 180;
+    }
+
+    internal static float? ToPercentValue(this Int32Value? f)
+    {
+        return f?.Value / OpenXmlToPercent;
     }
 }

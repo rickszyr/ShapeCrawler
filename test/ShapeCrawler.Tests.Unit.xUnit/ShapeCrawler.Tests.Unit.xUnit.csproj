@@ -208,6 +208,8 @@
     <EmbeddedResource Include="Resource\autoshape\autoshape-case017_slide-number.pptx" />
     <None Remove="Resource\autoshape\autoshape-case018_rotation.pptx" />
     <EmbeddedResource Include="Resource\autoshape\autoshape-case018_rotation.pptx" />
+    <None Remove="Resource\autoshape\autoshape-case019_custom-shapes.pptx" />
+    <EmbeddedResource Include="Resource\autoshape\autoshape-case019_custom-shapes.pptx" />
     <None Remove="Resource\test-mp3.mp3" />
     <EmbeddedResource Include="Resource\test-mp3.mp3" />
     <None Remove="Resource\039.pptx" />

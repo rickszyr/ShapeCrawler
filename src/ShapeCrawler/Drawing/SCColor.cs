@@ -91,7 +91,6 @@ public struct SCColor
     ///     Creates color from Hex value.
     /// </summary>
     /// <param name="hex">Hex value.</param>
-    /// <param name="result">Color value.</param>
     /// <returns>Returns <see langword="true" /> if hex is a valid value. </returns>
     public static SCColor FromHex(string hex)
     {
