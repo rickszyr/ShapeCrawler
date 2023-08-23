@@ -45,6 +45,7 @@ This library provides a simplified object model on top of the Open XML SDK for m
     <DocumentationFile>bin\Debug\ShapeCrawler.xml</DocumentationFile>
     <TargetFramework>net7.0</TargetFramework>
     <RunAnalyzers>false</RunAnalyzers>
+    <DebugType>Full</DebugType>
   </PropertyGroup>  
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">

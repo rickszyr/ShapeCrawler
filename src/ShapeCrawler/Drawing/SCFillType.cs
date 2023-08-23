@@ -33,5 +33,10 @@ public enum SCFillType
     /// <summary>
     ///     Slide background fill.
     /// </summary>
-    SlideBackground
+    SlideBackground,
+
+    /// <summary>
+    ///     Group Fill
+    /// </summary>
+    Group
 }

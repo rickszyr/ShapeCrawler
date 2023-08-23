@@ -2,31 +2,35 @@ using System;
 using System.Drawing;
 using System.Xml;
 using ShapeCrawler.Drawing;
+using ShapeCrawler.Shapes;
 using ShapeCrawler.Shared;
 using D = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
 using Svg;
 using Svg.Pathing;
-using DocumentFormat.OpenXml.Presentation;
 
 namespace ShapeCrawler;
 internal class SVGBuilder
 {
     private readonly SvgDocument document;
     private SCSlideMaster? slideMaster;
-    private bool shouldRedrawOutlinePath;
+    private bool shouldRedrawOutlinePath = false;
+    private P.ShapeProperties? shapeProperties;
+    private int id;
+
     public SVGBuilder()
     {
         this.document = new SvgDocument();
-        this.shouldRedrawOutlinePath = false;
     }
 
-    internal string BuildFromCustomGeometry(P.ShapeProperties shapeProperties, int width, int height, SCSlideMaster master)
+    internal string BuildFromCustomGeometry(SCShape scShape, int width, int height, SCSlideMaster master)
     {
         this.slideMaster = master;
+        this.shapeProperties = scShape.PShapeTreeChild.GetFirstChild<P.ShapeProperties>() !;
+        this.id = scShape.Id;
 
         var result = string.Empty;
-        var customGeometry = shapeProperties?.GetFirstChild<D.CustomGeometry>()!;
+        var customGeometry = this.shapeProperties?.GetFirstChild<D.CustomGeometry>() !;
 
         var shapePath = customGeometry.GetFirstChild<D.PathList>()?.GetFirstChild<D.Path>();
         var pixelWidth = UnitConverter.PointToPixel(UnitConverter.EmuToPoint((int)shapePath!.Width!));
@@ -39,9 +43,8 @@ internal class SVGBuilder
 
         var svgPath = shapePath.ToSvgPath(horizontalRatio, verticalRatio);
 
-        this.ProcessFill(shapeProperties!, svgPath);
-        this.ProcessOutline(shapeProperties!, svgPath);
-
+        this.ProcessFill(this.shapeProperties!, svgPath);
+        this.ProcessOutline(this.shapeProperties!, svgPath);
 
         var xml = new XmlDocument();
         xml.LoadXml(this.document.GetXML());
@@ -50,21 +53,40 @@ internal class SVGBuilder
         return svgNode!.OuterXml;
     }
 
-    private void ProcessOutline(ShapeProperties shapeProperties, SvgPath svgPath)
+    /// <summary>
+    /// ToDo Implement for other shapes.
+    /// </summary>
+    /// <param name="shape"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <param name="master"></param>
+    /// <returns></returns>
+    internal string BuildFromAutoshape(SCShape shape, int width, int height, SCSlideMaster master){
+        return string.Empty;
+    }
+
+    private void ProcessOutline(P.ShapeProperties shapeProperties, SvgPath svgPath)
     {
         var outline = shapeProperties.GetFirstChild<D.Outline>();
-        var strokeWidth = UnitConverter.PointToPixel(UnitConverter.EmuToPoint(outline?.Width!));
-        if(strokeWidth > 1){
-            this.document.Width += strokeWidth;
-            this.document.Height += strokeWidth;
-        }
-
 
         if (outline is not null)
         {
-            var solidFill = outline.GetFirstChild<D.SolidFill>();
+            var solidFill = outline!.GetFirstChild<D.SolidFill>();
             var gradientFill = outline.GetFirstChild<D.GradientFill>();
             var noFill = outline.GetFirstChild<D.NoFill>();
+
+            if (noFill is not null)
+            {
+                // no outline to process.
+                return;
+            }
+
+            var strokeWidth = UnitConverter.PointToPixel(UnitConverter.EmuToPoint(outline?.Width!));
+            if (strokeWidth > 1)
+            {
+                this.document.Width += strokeWidth / 2;
+                this.document.Height += strokeWidth / 2;
+            }
 
             if (solidFill is not null)
             {
@@ -86,6 +108,8 @@ internal class SVGBuilder
     /// Processes the fill, adding it to the Svg Document.
     /// If it's a simple solid color fill, it is added to the path.
     /// If it's a gradient fill, it depends on whether it's a simple linear gradient, or a path gradient.
+    /// It's possible that the fill comes from a group. In that case it will depend on the group fill.
+    /// If it's a solid color, it's straight forward. Not yet implemented if it's a gradient.
     /// <para>Linear gradient - it is added to the document and then assigned to the path.</para>
     /// <para>Path gradient - it is processed separately for each type (rect, circle &lt; not currently supported, shape &lt; not currently supported.)</para>
     /// </summary>
@@ -96,32 +120,50 @@ internal class SVGBuilder
         var solidFill = shapeProperties.GetFirstChild<D.SolidFill>();
         var gradientFill = shapeProperties.GetFirstChild<D.GradientFill>();
         var noFill = shapeProperties.GetFirstChild<D.NoFill>();
-        var test = new ColorConverter();
+        var groupFill = shapeProperties.GetFirstChild<D.GroupFill>();
 
-        if (solidFill is not null)
+
+        if ((solidFill is not null))
         {
-            shapePath.Fill = new SvgColourServer(HexParser.GetSolidColorFromElement(solidFill!, this.slideMaster!));
+            this.ProcessSolidFill(shapePath, solidFill);
         }
         else if (gradientFill is not null)
         {
-            var linearGradientFill = gradientFill.GetFirstChild<D.LinearGradientFill>();
-            var pathGradientFill = gradientFill.GetFirstChild<D.PathGradientFill>();
+            this.ProcessGradientFill(shapePath, gradientFill);
+        }
+        else if (groupFill is not null)
+        {
+            this.ProcessGroupFill(shapePath, groupFill);
+        }
+    }
 
-            if (linearGradientFill is not null)
-            {
-                var gradient = linearGradientFill.ToSvgLinearGradient(this.slideMaster!);
-                shapePath.Fill = gradient;
+    private void ProcessSolidFill(SvgPath shapePath, D.SolidFill? solidFill)
+    {
+        shapePath.Fill = new SvgColourServer(HexParser.GetSolidColorFromElement(solidFill!, this.slideMaster!));
+        this.document.Children.Add(shapePath);
+    }
 
-                this.document.Children.Add(gradient);
-                this.document.Children.Add(shapePath);
-            }
-            else if (pathGradientFill is not null)
+    private void ProcessGradientFill(SvgPath shapePath, D.GradientFill gradientFill)
+    {
+        var linearGradientFill = gradientFill.GetFirstChild<D.LinearGradientFill>();
+        var pathGradientFill = gradientFill.GetFirstChild<D.PathGradientFill>();
+
+        if (linearGradientFill is not null)
+        {
+            var gradient = linearGradientFill.ToSvgLinearGradient(this.slideMaster!);
+            gradient.ID = $"lg_{this.id}";
+            shapePath.Fill = gradient;
+
+            this.document.Children.Add(gradient);
+            this.document.Children.Add(shapePath);
+        }
+        else if (pathGradientFill is not null)
+        {
+            var pathType = pathGradientFill.Path!.Value;
+            if (pathType == D.PathShadeValues.Rectangle)
             {
-                var pathType = pathGradientFill.Path!.Value;
-                if (pathType == D.PathShadeValues.Rectangle)
-                {
-                    this.ProcessRectangleFill(shapePath, gradientFill);
-                }
+                this.ProcessRectangleFill(shapePath, gradientFill);
+                this.shouldRedrawOutlinePath = true;
             }
         }
     }
@@ -140,7 +182,7 @@ internal class SVGBuilder
         var gradientRectHeight = this.document.Height - tileTop - tileBottom;
 
         var horizontalGradient = new SvgLinearGradientServer();
-        horizontalGradient.ID = "horizontal";
+        horizontalGradient.ID = $"horizontal_{this.id}";
         horizontalGradient.SpreadMethod = SvgGradientSpreadMethod.Reflect;
         horizontalGradient.X1 = 0.5f;
 
@@ -149,7 +191,7 @@ internal class SVGBuilder
 
 
         var verticalGradient = (SvgLinearGradientServer)horizontalGradient.Clone();
-        verticalGradient.ID = "vertical";
+        verticalGradient.ID = $"vertical_{this.id}";
         verticalGradient.Y1 = 0.5f;
         verticalGradient.Y2 = 1f;
         verticalGradient.X1 = 0;
@@ -176,11 +218,11 @@ internal class SVGBuilder
         group.Children.AddAndForceUniqueID(verticalPath);
 
         var definitions = new SvgDefinitionList();
-        shapePath.ID = "custom-shape";
+        shapePath.ID = $"custom-shape_{this.id}";
         definitions.Children.AddAndForceUniqueID(shapePath);
 
         var clipPath = new SvgClipPath();
-        clipPath.ID = "shape-clip";
+        clipPath.ID = $"shape-clip_{this.id}";
         var use = new SvgUse();
         use.CustomAttributes.Add("href", $"#{shapePath.ID}");
         clipPath.Children.Add(use);
@@ -192,5 +234,24 @@ internal class SVGBuilder
         this.document.Children.AddAndForceUniqueID(definitions);
         this.document.Children.AddAndForceUniqueID(clipPath);
         this.document.Children.AddAndForceUniqueID(group);
+    }
+
+    private void ProcessGroupFill(SvgPath shapePath, D.GroupFill? groupFill)
+    {
+        var parentGroups = this.shapeProperties?.Ancestors<P.GroupShape>() !;
+        foreach (var ancestor in parentGroups)
+        {
+            var visualProperties = ancestor.GetFirstChild<P.GroupShapeProperties>();
+            if (visualProperties != null)
+            {
+                var solidFill = visualProperties.GetFirstChild<D.SolidFill>();
+                if (solidFill is not null)
+                {
+                    this.ProcessSolidFill(shapePath, solidFill);
+                }
+
+                break;
+            }
+        }
     }
 }

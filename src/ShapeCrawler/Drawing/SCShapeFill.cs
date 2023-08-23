@@ -4,6 +4,7 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using ShapeCrawler.Extensions;
 using A = DocumentFormat.OpenXml.Drawing;
+using P = DocumentFormat.OpenXml.Presentation;
 
 namespace ShapeCrawler.Drawing;
 
@@ -28,6 +29,7 @@ internal abstract class SCShapeFill : IShapeFill
     private A.GradientFill? aGradFill;
     private A.PatternFill? aPattFill;
     private A.BlipFill? aBlipFill;
+    private A.GroupFill? aGroupFill;
 
     internal SCShapeFill(SlideStructure slideObject, TypedOpenXmlCompositeElement properties)
     {
@@ -115,6 +117,32 @@ internal abstract class SCShapeFill : IShapeFill
         throw new NotImplementedException();
     }
 
+    protected virtual void InitGroupFillOr()
+    {
+        this.aGroupFill = this.properties.GetFirstChild<A.GroupFill>();
+        if (this.aGroupFill is not null)
+        {
+            this.fillType = SCFillType.Group;
+            var shape = this.properties.Parent as P.Shape;
+            var parentGroups = shape?.Ancestors<P.GroupShape>();
+
+            foreach (var ancestor in parentGroups!)
+            {
+                var visualProperties = ancestor.GetFirstChild<P.GroupShapeProperties>();
+                if (visualProperties != null)
+                {
+                    var solidFill = visualProperties.GetFirstChild<A.SolidFill>();
+                    if (solidFill is not null)
+                    {
+                        this.aSolidFill = solidFill;
+                        this.InitSolidFillOr();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     protected virtual void InitSlideBackgroundFillOr()
     {
         this.aNoFill = this.properties.GetFirstChild<A.NoFill>();
@@ -139,7 +167,7 @@ internal abstract class SCShapeFill : IShapeFill
 
     private void InitSolidFillOr()
     {
-        this.aSolidFill = this.properties.GetFirstChild<DocumentFormat.OpenXml.Drawing.SolidFill>();
+        this.aSolidFill = this.aSolidFill ?? this.properties.GetFirstChild<DocumentFormat.OpenXml.Drawing.SolidFill>();
         if (this.aSolidFill != null)
         {
             var aRgbColorModelHex = this.aSolidFill.RgbColorModelHex;
@@ -207,7 +235,7 @@ internal abstract class SCShapeFill : IShapeFill
         }
         else
         {
-            this.InitSlideBackgroundFillOr();
+            this.InitGroupFillOr();
         }
     }
 

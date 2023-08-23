@@ -166,10 +166,11 @@ public class SvgTests : SCTest
         group.ClipRule = SvgClipRule.NonZero;
         group.ShapeRendering = SvgShapeRendering.GeometricPrecision;
 
-        document.Children.Add(definitionList);
-        document.Children.Add(clipPath);
-        document.Children.Add(group);
+        document.Children.AddAndForceUniqueID(definitionList);
+        document.Children.AddAndForceUniqueID(clipPath);
+        document.Children.AddAndForceUniqueID(group);
 
-        File.WriteAllText("SvgNetResult.svg", document.GetXML());
+        var xml = document.GetXML();
+        File.WriteAllText("SvgNetResult.svg", xml);
     }
 }

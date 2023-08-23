@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Reflection.Metadata;
 using ShapeCrawler.Shared;
 using Svg;
 using Svg.Pathing;
@@ -89,12 +88,11 @@ namespace ShapeCrawler.Drawing
         internal static SvgLinearGradientServer ToSvgLinearGradient(this D.LinearGradientFill fill, SCSlideMaster slideMaster)
         {
             var result = new SvgLinearGradientServer();
-            result.ID = "lg";
             var gradientFillParent = fill.Parent as D.GradientFill;
             var stops = gradientFillParent!.GetGradientStops(slideMaster);
             var xmlAngle = fill.Angle?.Value;
             var scale = fill.Scaled?.Value ?? false;
-            var properties = fill.Ancestors<P.ShapeProperties>().FirstOrDefault() !;
+            var properties = fill.Ancestors<P.ShapeProperties>().FirstOrDefault() !;            
             var gradientAngle = UnitConverter.AngleValueToRadians(xmlAngle ?? 0);
             var xfrm = properties.Transform2D;
             var shapePixelWidth = UnitConverter.HorizontalEmuToPixel(xfrm!.Extents!.Cx!);

@@ -114,7 +114,7 @@ internal class SCAutoShape : SCShape, IAutoShape, ITextFrameContainer
 
         if (customGeometry is not null)
         {
-            return svgBuilder.BuildFromCustomGeometry(shapeProperties!, this.Width, this.Height, this.SlideMasterInternal);
+            return svgBuilder.BuildFromCustomGeometry(this, this.Width, this.Height, this.SlideMasterInternal);
         }
 
         return string.Empty;
